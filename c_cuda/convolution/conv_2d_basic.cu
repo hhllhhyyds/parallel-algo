@@ -1,21 +1,5 @@
-#include <cuda_runtime.h>
-
 #include "conv_2d_basic.h"
-#include <stdio.h>
-
-#define cudaCheckErrors(msg)                                   \
-    do                                                         \
-    {                                                          \
-        cudaError_t __err = cudaGetLastError();                \
-        if (__err != cudaSuccess)                              \
-        {                                                      \
-            fprintf(stderr, "Fatal error: %s (%s at %s:%d)\n", \
-                    msg, cudaGetErrorString(__err),            \
-                    __FILE__, __LINE__);                       \
-            fprintf(stderr, "*** FAILED - ABORTING\n");        \
-            exit(1);                                           \
-        }                                                      \
-    } while (0)
+#include "error_assert.h"
 
 __global__ void
 conv_2d_basic_float_kernel(
@@ -28,6 +12,7 @@ conv_2d_basic_float_kernel(
 extern "C"
 {
 #endif
+
     void conv_2d_basic_float_p_dev(float *in,     // row major 2D matrix
                                    float *out,    // row major 2D matrix
                                    float *filter, // row major 2D matrix
@@ -43,12 +28,8 @@ extern "C"
         dim_grid.y = (height + dim_block.y - 1) / dim_block.y;
         dim_grid.z = 1;
 
-        printf("dim_grid x = %d, y = %d, z = %d\n", dim_grid.x, dim_grid.y, dim_grid.z);
-
         conv_2d_basic_float_kernel<<<dim_grid, dim_block>>>(in, out, filter, r, width, height);
-        printf("aa dim_grid x = %d, y = %d, z = %d\n", dim_grid.x, dim_grid.y, dim_grid.z);
-        cudaDeviceSynchronize();
-        cudaCheckErrors("error");
+        cudaCheckErrors("Error in convolution");
     }
 
 #ifdef __cplusplus
@@ -82,6 +63,4 @@ conv_2d_basic_float_kernel(
     }
 
     out[out_row * width + out_col] = val;
-
-    // printf("out_col = %d, out_row = %d, out = %f, in = %f\n", out_col, out_row, out[out_row * width + out_col], in[out_row * width + out_col]);
 }

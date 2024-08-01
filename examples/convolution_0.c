@@ -5,8 +5,6 @@
 #include <cuda_runtime.h>
 #include <malloc.h>
 
-extern void hello_from_rust();
-
 void blur_a_channel(int width, int height, float *channel)
 {
     int r = 5;
@@ -39,9 +37,6 @@ void blur_a_channel(int width, int height, float *channel)
 
 int main(void)
 {
-    print_hello_cuda();
-
-    hello_from_rust();
     struct CRgbChannels c = load_image_rs("asset/image/eagle.png");
 
     blur_a_channel(c.width, c.height, c.r);
@@ -49,6 +44,7 @@ int main(void)
     blur_a_channel(c.width, c.height, c.b);
 
     save_image_rs("asset/image/eagle_blur.png", c);
+
     free_rgb_channels(c);
     return 0;
 }

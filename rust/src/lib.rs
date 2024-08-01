@@ -3,24 +3,22 @@ use std::ffi::{c_char, CStr};
 use image::{ImageBuffer, ImageResult, Rgb};
 
 #[no_mangle]
-pub extern "C" fn hello_from_rust() {
-    println!("Hello from Rust!");
-}
-
-#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn load_image_rs(path: *const c_char) -> CRgbChannels {
     let path = unsafe { CStr::from_ptr(path).to_string_lossy() };
     let channels =
-        load_image(path.to_string()).expect(&format!("Failed to load image at {}", path));
+        load_image(path.to_string()).unwrap_or_else(|_| panic!("Failed to load image at {}", path));
     println!("Successfully load image at {}", path);
     channels.into()
 }
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn save_image_rs(path: *const c_char, channels: CRgbChannels) {
     let path = unsafe { CStr::from_ptr(path).to_string_lossy() };
     let channels = RgbChannels::from(channels);
-    save_image(&channels, path.to_string()).expect(&format!("Failed to save image at {}", path));
+    save_image(&channels, path.to_string())
+        .unwrap_or_else(|_| panic!("Failed to save image at {}", path));
     println!("Successfully save image at {}", path);
     let _ = CRgbChannels::from(channels);
 }
@@ -33,19 +31,19 @@ pub extern "C" fn free_rgb_channels(channels: CRgbChannels) {
 
 #[derive(Default, Clone)]
 struct RgbChannels {
-    pub width: u32,
-    pub height: u32,
-    pub r: Vec<f32>,
-    pub g: Vec<f32>,
-    pub b: Vec<f32>,
+    width: u32,
+    height: u32,
+    r: Vec<f32>,
+    g: Vec<f32>,
+    b: Vec<f32>,
 }
 
 impl RgbChannels {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self::default()
     }
 
-    pub fn assembly(&self) -> Vec<u8> {
+    fn assembly(&self) -> Vec<u8> {
         let mut ret = vec![];
         for i in 0..self.r.len() {
             ret.push((self.r[i] * 255.) as u8);
@@ -58,11 +56,11 @@ impl RgbChannels {
 
 #[repr(C)]
 pub struct CRgbChannels {
-    pub width: u32,
-    pub height: u32,
-    pub r: *mut f32,
-    pub g: *mut f32,
-    pub b: *mut f32,
+    width: u32,
+    height: u32,
+    r: *mut f32,
+    g: *mut f32,
+    b: *mut f32,
 }
 
 impl From<RgbChannels> for CRgbChannels {
@@ -105,7 +103,7 @@ fn load_image(path: impl AsRef<std::path::Path>) -> ImageResult<RgbChannels> {
     let img = image::ImageReader::open(path)?.decode()?.to_rgb32f();
     let (width, height) = (img.width(), img.height());
     let size = width * height;
-    let mut rgb = RgbChannels::default();
+    let mut rgb = RgbChannels::new();
     for pixel in img.pixels() {
         rgb.r.push(pixel[0]);
         rgb.g.push(pixel[1]);
