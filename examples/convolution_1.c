@@ -21,8 +21,9 @@ void blur_a_channel(int width, int height, float *channel)
     cudaMalloc((void **)&out_d, width * height * sizeof(float));
 
     cudaMemcpy(in_d, channel, width * height * sizeof(float), cudaMemcpyHostToDevice);
+    set_filter_constant(filter_h);
 
-    conv_2d_constant_filter_p_dev(in_d, out_d, filter_h, r, width, height);
+    conv_2d_constant_filter_p_dev(in_d, out_d, width, height);
 
     cudaMemcpy(channel, out_d, width * height * sizeof(float), cudaMemcpyDeviceToHost);
 

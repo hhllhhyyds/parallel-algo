@@ -9,25 +9,17 @@ __global__ void
 conv_2d_constant_filter_kernel(
     float *in,  // row major 2D matrix
     float *out, // row major 2D matrix
-    int r, int width, int height);
+    int width, int height);
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-    void conv_2d_constant_filter_p_dev(float *in,       // row major 2D matrix
-                                       float *out,      // row major 2D matrix
-                                       float *filter_h, // row major 2D matrix
-                                       int r, int width, int height)
+    void conv_2d_constant_filter_p_dev(float *in,  // row major 2D matrix
+                                       float *out, // row major 2D matrix
+                                       int width, int height)
     {
-        if (r != FILTER_RADIUS)
-        {
-            fprintf(stderr, "Fatal error: filter radius not match, at %s:%d", __FILE__, __LINE__);
-            fprintf(stderr, "*** FAILED - ABORTING\n");
-            exit(1);
-        }
-
         dim3 dim_block;
         dim_block.x = 32;
         dim_block.y = 32;
@@ -38,10 +30,13 @@ extern "C"
         dim_grid.y = (height + dim_block.y - 1) / dim_block.y;
         dim_grid.z = 1;
 
-        cudaMemcpyToSymbol(filter, filter_h, (2 * FILTER_RADIUS + 1) * (2 * FILTER_RADIUS + 1) * sizeof(float));
-
-        conv_2d_constant_filter_kernel<<<dim_grid, dim_block>>>(in, out, r, width, height);
+        conv_2d_constant_filter_kernel<<<dim_grid, dim_block>>>(in, out, width, height);
         cudaCheckErrors("Error in convolution");
+    }
+
+    void set_filter_constant(float *filter_h)
+    {
+        cudaMemcpyToSymbol(filter, filter_h, (2 * FILTER_RADIUS + 1) * (2 * FILTER_RADIUS + 1) * sizeof(float));
     }
 
 #ifdef __cplusplus
@@ -52,9 +47,9 @@ __global__ void
 conv_2d_constant_filter_kernel(
     float *in,  // row major 2D matrix
     float *out, // row major 2D matrix
-    int r, int width, int height)
+    int width, int height)
 {
-
+    const int r = FILTER_RADIUS;
     int out_col = blockIdx.x * blockDim.x + threadIdx.x;
     int out_row = blockIdx.y * blockDim.y + threadIdx.y;
 
