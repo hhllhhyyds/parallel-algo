@@ -11,6 +11,12 @@ conv_2d_constant_filter_kernel(
     float *out, // row major 2D matrix
     int width, int height);
 
+__global__ void
+conv_2d_tiled_constant_filter_kernel(
+    float *in,
+    float *out,
+    int width, int height);
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -31,6 +37,24 @@ extern "C"
         dim_grid.z = 1;
 
         conv_2d_constant_filter_kernel<<<dim_grid, dim_block>>>(in, out, width, height);
+        cudaCheckErrors("Error in convolution");
+    }
+
+    void conv_2d_tiled_constant_filter_p_dev(float *in,  // row major 2D matrix
+                                             float *out, // row major 2D matrix
+                                             int width, int height)
+    {
+        dim3 dim_block;
+        dim_block.x = IN_TILE_DIM;
+        dim_block.y = IN_TILE_DIM;
+        dim_block.z = 1;
+
+        dim3 dim_grid;
+        dim_grid.x = (width + OUT_TILE_DIM - 1) / OUT_TILE_DIM;
+        dim_grid.y = (height + OUT_TILE_DIM - 1) / OUT_TILE_DIM;
+        dim_grid.z = 1;
+
+        conv_2d_tiled_constant_filter_kernel<<<dim_grid, dim_block>>>(in, out, width, height);
         cudaCheckErrors("Error in convolution");
     }
 
@@ -69,4 +93,39 @@ conv_2d_constant_filter_kernel(
     }
 
     out[out_row * width + out_col] = val;
+}
+
+__global__ void
+conv_2d_tiled_constant_filter_kernel(
+    float *in,
+    float *out,
+    int width, int height)
+{
+    int col = blockIdx.x * OUT_TILE_DIM + threadIdx.x - FILTER_RADIUS;
+    int row = blockIdx.y * OUT_TILE_DIM + threadIdx.y - FILTER_RADIUS;
+
+    __shared__ float tile_in[IN_TILE_DIM][IN_TILE_DIM];
+    tile_in[threadIdx.y][threadIdx.x] = (row >= 0 && col >= 0 && row < height && col < width) ? in[row * width + col] : 0.0f;
+    __syncthreads();
+
+    int tile_col = threadIdx.x - FILTER_RADIUS;
+    int tile_row = threadIdx.y - FILTER_RADIUS;
+
+    if (row >= 0 && col >= 0 && row < height && col < width)
+    {
+        if (tile_col >= 0 && tile_col < OUT_TILE_DIM && tile_row >= 0 && tile_row < OUT_TILE_DIM)
+        {
+            float val = 0.0f;
+
+            for (int f_row = 0; f_row < 2 * FILTER_RADIUS + 1; ++f_row)
+            {
+                for (int f_col = 0; f_col < 2 * FILTER_RADIUS + 1; ++f_col)
+                {
+                    val += filter[f_row * (2 * FILTER_RADIUS + 1) + f_col] * tile_in[tile_row + f_row][tile_col + f_col];
+                }
+            }
+
+            out[row * width + col] = val;
+        }
+    }
 }
